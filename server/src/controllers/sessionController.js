@@ -20,7 +20,7 @@ export function listSessions(req, res) {
 
 export function joinSession(req, res) {
   const { sessionId } = req.params;
-  const { name } = req.body; // may be undefined — Player handles it
+  const { name } = req.body;
 
   const session = gameEngine.getSession(sessionId);
 
@@ -28,20 +28,35 @@ export function joinSession(req, res) {
     return res.status(404).json({ error: "Session not found" });
   }
 
-  // Enforce lifecycle: only allow joins while waiting
   if (session.state !== "waiting") {
     return res.status(400).json({
       error: "Cannot join a session that has already started",
     });
   }
 
-  // Player owns normalization + defaults
   const player = new Player({ name });
-
   session.addPlayer(player);
 
   res.status(201).json({
     player: player.toJSON(),
     session: session.toJSON(),
   });
+}
+
+export function startSession(req, res) {
+  const { sessionId } = req.params;
+  const { playerId } = req.body;
+
+  const session = gameEngine.getSession(sessionId);
+
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+
+  try {
+    session.start(playerId);
+    res.json(session.toJSON());
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 }

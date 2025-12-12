@@ -3,6 +3,7 @@ import {
   createSession,
   listSessions,
   joinSession,
+  startSession,
 } from "../controllers/sessionController.js";
 
 export function registerRoutes(app) {
@@ -10,6 +11,7 @@ export function registerRoutes(app) {
 
   // session lifecycle
   router.post("/sessions", createSession);
+  router.post("/sessions/:sessionId/start", startSession);
   router.get("/sessions", listSessions);
 
   // player joins existing session

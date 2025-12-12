@@ -30,15 +30,13 @@ export class GameSession {
   removePlayer(playerId) {
     this.players.delete(playerId);
 
-    // Optional (we can refine later):
-    // if host leaves, assign a new host
     if (this.hostPlayerId === playerId) {
       const next = this.players.keys().next().value || null;
       this.hostPlayerId = next;
     }
   }
 
-  start(playerId) {
+  start(playerId, gameHandler = null) {
     if (this.state !== "waiting") {
       throw new Error("Session has already started");
     }
@@ -49,6 +47,11 @@ export class GameSession {
 
     this.state = "active";
     this.startedAt = Date.now();
+
+    // 🔌 Let the game initialize itself
+    if (gameHandler?.onStart) {
+      gameHandler.onStart(this);
+    }
   }
 
   toJSON() {

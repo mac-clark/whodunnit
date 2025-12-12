@@ -54,7 +54,8 @@ export function startSession(req, res) {
   }
 
   try {
-    session.start(playerId);
+    const handler = gameEngine.getGameHandler(session.gameType);
+    session.start(playerId, handler);
     res.json(session.toJSON());
   } catch (err) {
     res.status(400).json({ error: err.message });

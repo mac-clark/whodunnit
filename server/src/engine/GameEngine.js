@@ -13,6 +13,10 @@ class GameEngine {
     this.registeredGames.set(gameType, handler);
   }
 
+  getGameHandler(gameType) {
+    return this.registeredGames.get(gameType) || null;
+  }
+
   createSession(gameType) {
     if (!this.registeredGames.has(gameType)) {
       throw new Error(`Unknown game type: ${gameType}`);

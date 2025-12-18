@@ -4,20 +4,39 @@ import {
   listSessions,
   joinSession,
   startSession,
+  advancePhase,
 } from "../controllers/sessionController.js";
 
 export function registerRoutes(app) {
   const router = Router();
 
-  // session lifecycle
+  // ─────────────────────────────
+  // Session lifecycle
+  // ─────────────────────────────
+
   router.post("/sessions", createSession);
   router.post("/sessions/:sessionId/start", startSession);
   router.get("/sessions", listSessions);
 
-  // player joins existing session
+  // ─────────────────────────────
+  // Player joins existing session
+  // ─────────────────────────────
+
   router.post("/sessions/:sessionId/join", joinSession);
 
-  // health check
+  // ─────────────────────────────
+  // Game phase control (narrator-only)
+  // ─────────────────────────────
+
+  router.post(
+    "/sessions/:sessionId/phase/advance",
+    advancePhase
+  );
+
+  // ─────────────────────────────
+  // Health check
+  // ─────────────────────────────
+
   router.get("/health", (req, res) => {
     res.json({ status: "ok" });
   });

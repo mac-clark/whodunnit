@@ -56,28 +56,82 @@ export class WhodunnitGame {
       (p) => p.id !== narrator.id
     );
 
-    const shuffled = shuffle(nonNarratorPlayers);
+    const playerCount = nonNarratorPlayers.length;
+    const rolesPool = [];
 
-    const assignedRoles = [];
+    // --- REQUIRED ROLES ---
+    rolesPool.push(ROLES.DETECTIVE.id);
+    rolesPool.push(ROLES.DOCTOR.id);
 
-    // Required roles
-    assignedRoles.push(ROLES.MAFIA.id);
-    assignedRoles.push(ROLES.DETECTIVE.id);
-    assignedRoles.push(ROLES.DOCTOR.id);
+    // --- OPTIONAL ROLE CANDIDATES ---
+    const optionalRoles = Object.values(ROLES).filter((role) => {
+      if (!role.countsAsPlayer) return false;
+      if (role.required) return false;
+      if (role.id === "civilian") return false;
+      if (role.maxPerGame === 0) return false;
+      return true;
+    });
 
-    // Fill remaining with civilians for now
-    while (assignedRoles.length < shuffled.length) {
-      assignedRoles.push(ROLES.CIVILIAN.id);
+    // Track maxPerGame
+    const roleCounts = {};
+    rolesPool.forEach((r) => {
+      roleCounts[r] = (roleCounts[r] || 0) + 1;
+    });
+
+    // --- Required mafia ---
+    rolesPool.push(ROLES.MAFIA.id);
+    roleCounts[ROLES.MAFIA.id] = 1;
+
+    // --- Mafia scaling ---
+    const mafiaCount = Math.max(1, Math.floor(playerCount / 4));
+
+    for (let i = 1; i < mafiaCount; i++) {
+      rolesPool.push(ROLES.MAFIA.id);
+      roleCounts[ROLES.MAFIA.id]++;
     }
 
-    shuffle(assignedRoles);
+    // --- Fill remaining slots ---
+    while (rolesPool.length < playerCount) {
+      const roll = Math.random();
+
+      // 70% chance civilian
+      if (roll < 0.7) {
+        rolesPool.push(ROLES.CIVILIAN.id);
+        roleCounts[ROLES.CIVILIAN.id] = (roleCounts[ROLES.CIVILIAN.id] || 0) + 1;
+        continue;
+      }
+
+      // 30% chance specialty
+      const candidates = optionalRoles.filter((role) => {
+        if (role.maxPerGame) {
+          return (roleCounts[role.id] || 0) < role.maxPerGame;
+        }
+        return true;
+      });
+
+      if (candidates.length === 0) {
+        rolesPool.push(ROLES.CIVILIAN.id);
+        roleCounts[ROLES.CIVILIAN.id] =
+          (roleCounts[ROLES.CIVILIAN.id] || 0) + 1;
+        continue;
+      }
+
+      const selected =
+        candidates[Math.floor(Math.random() * candidates.length)];
+
+      rolesPool.push(selected.id);
+      roleCounts[selected.id] = (roleCounts[selected.id] || 0) + 1;
+    }
+
+    // Shuffle final role list
+    shuffle(rolesPool);
 
     // ─────────────────────────────
     // Assign players + characters
     // ─────────────────────────────
 
-    shuffled.forEach((player, index) => {
-      const roleId = assignedRoles[index];
+    nonNarratorPlayers.forEach((player, index) => {
+      const roleId = rolesPool[index];
       const role = ROLES[roleId.toUpperCase()];
 
       const characterPool = theme.roleMap[roleId] || [];
@@ -90,14 +144,12 @@ export class WhodunnitGame {
         id: player.id,
         name: player.name,
         alive: true,
-
         role: {
           id: role.id,
           alignment: role.alignment,
           objective: role.objective,
           abilities: role.abilities,
         },
-
         character,
       };
     });
@@ -135,6 +187,59 @@ export class WhodunnitGame {
       timestamp: Date.now(),
     });
   }
+
+  advancePhase(session, actorId) {
+    const { gameState } = session;
+
+    if (actorId !== gameState.narratorId) {
+      throw new Error("Only the narrator can advance the phase");
+    }
+
+    const currentPhase = gameState.phase;
+
+    switch (currentPhase) {
+      case "setup":
+        gameState.phase = "day";
+        gameState.round = 1;
+
+        this.emit(session, WHODUNNIT_EVENTS.ROUND_STARTED, {
+          round: gameState.round,
+        });
+
+        this.emit(session, WHODUNNIT_EVENTS.DAY_STARTED, {
+          round: gameState.round,
+        });
+        break;
+
+      case "day":
+        gameState.phase = "night";
+
+        this.emit(session, WHODUNNIT_EVENTS.NIGHT_STARTED, {
+          round: gameState.round,
+        });
+        break;
+
+      case "night":
+        this.emit(session, WHODUNNIT_EVENTS.NIGHT_ENDED, {
+          round: gameState.round,
+        });
+
+        gameState.round += 1;
+        gameState.phase = "day";
+
+        this.emit(session, WHODUNNIT_EVENTS.ROUND_STARTED, {
+          round: gameState.round,
+        });
+
+        this.emit(session, WHODUNNIT_EVENTS.DAY_STARTED, {
+          round: gameState.round,
+        });
+        break;
+
+      default:
+        throw new Error(`Unknown phase: ${currentPhase}`);
+    }
+  }
 }
 
 // ─────────────────────────────
@@ -143,4 +248,10 @@ export class WhodunnitGame {
 
 function shuffle(array) {
   return [...array].sort(() => Math.random() - 0.5);
+}
+
+function getPlayableRoles() {
+  return Object.values(ROLES).filter(
+    (role) => role.countsAsPlayer && role.id != "narrator"
+  );
 }

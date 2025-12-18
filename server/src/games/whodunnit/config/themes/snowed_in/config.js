@@ -1,3 +1,5 @@
+// src/games/whodunnit/config/themes/snowed_in/config.js
+
 export const themeConfig = {
   id: "snowed_in",
   name: "Snowed In",

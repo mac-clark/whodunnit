@@ -6,6 +6,7 @@ import {
   startSession,
   advancePhase,
 } from "../controllers/sessionController.js";
+import { getNarration } from "../controllers/narrationController.js";
 
 export function registerRoutes(app) {
   const router = Router();
@@ -31,6 +32,15 @@ export function registerRoutes(app) {
   router.post(
     "/sessions/:sessionId/phase/advance",
     advancePhase
+  );
+
+  // ─────────────────────────────
+  // Narration (read-only)
+  // ─────────────────────────────
+
+  router.get(
+    "/sessions/:sessionId/narration",
+    getNarration
   );
 
   // ─────────────────────────────

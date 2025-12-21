@@ -1,0 +1,44 @@
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, sans-serif;
+}
+
+.app-root {
+  height: 100%;
+  background: #0e1117;
+  color: #fff;
+}
+
+.screen {
+  height: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+
+button {
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  background: #ffffff;
+  color: #000;
+}
+
+input {
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: none;
+}
+
+.narration {
+  background: rgba(255,255,255,0.08);
+  padding: 16px;
+  border-radius: 10px;
+  line-height: 1.6;
+}

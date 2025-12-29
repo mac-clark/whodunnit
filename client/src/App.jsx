@@ -22,8 +22,9 @@ export default function App() {
 
       {screen === "host" && (
         <HostScreen
-          onSessionCreated={(id) => {
+          onSessionCreated={(id, hostPlayer) => {
             setSessionId(id);
+            setPlayer(hostPlayer);
             setScreen("game");
           }}
           onBack={() => setScreen("home")}

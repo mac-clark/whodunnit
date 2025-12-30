@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getDeviceToken } from "../lib/deviceToken";
+import RoleCard from "../cards/RoleCard";
+import NarrationCard from "../cards/NarrationCard";
 
 const REVEAL_KEY_PREFIX = "whodunnit_reveal_done_";
 
@@ -31,6 +33,8 @@ export default function GameScreen({
 
   // Track last narration fetch key so we only fetch when phase/round changes
   const lastNarrationKeyRef = useRef(null);
+
+  const[advancing, setAdvancing] = useState(false);
 
   const isDev = import.meta.env.VITE_DEV_TOOLS == 1;
   const devPlayerId = player?.id || player?._id;
@@ -102,6 +106,41 @@ export default function GameScreen({
     }
   }
 
+  // Advance the narration
+  async function advancePhase() {
+    if (!sessionId) return;
+
+    try {
+      setAdvancing(true);
+      setError("");
+
+      const headers = { "Content-Type": "application/json" };
+
+      // dev impersonation (same as view)
+      if (isDev && devPlayerId) {
+        headers["x-dev-player-id"] = devPlayerId;
+      }
+
+      const res = await fetch(`/api/sessions/${sessionId}/phase/advance`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ deviceToken: getDeviceToken() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to advance phase");
+      }
+
+      // refresh immediately so storyStep/phase/round changes trigger narration
+      fetchView({ silent: true });
+    } catch (e) {
+      setError(e.message || "Failed to advance phase");
+    } finally {
+      setAdvancing(false);
+    }
+  }
+
   useEffect(() => {
     if (!sessionId) return;
     fetchView();
@@ -121,8 +160,8 @@ export default function GameScreen({
 
   // ─────────────────────────────
   // Fetch narration (NO POLLING)
-  // Only fetch when narrator advances phase/round (i.e., view changes)
-  // AND never during setup
+  // Fetch when phase/round/storyStep changes
+  // Allow narration during setup IF storyStep has begun (prologue/rules)
   // ─────────────────────────────
 
   async function fetchNarrationOnce() {
@@ -136,7 +175,6 @@ export default function GameScreen({
       const data = await res.json();
       setNarrationPayload(data);
     } catch (e) {
-      // Don't brick the screen; just surface message
       setError(e.message || "Failed to load narration");
     }
   }
@@ -146,21 +184,22 @@ export default function GameScreen({
     if (!view) return;
 
     const phase = view.phase;
-    const round = view.round;
+    const round = Number(view.round || 0);
+    const storyStep = Number(view.storyStep || 0);
 
-    // ✅ NO narration requests until narrator advances
-    // Treat "setup" as strict no-narration phase.
-    if (!phase || phase === "setup") return;
+    // ✅ Allow narration during setup if storyStep > 0 (prologue/rules)
+    const canNarrate = phase && (phase !== "setup" || storyStep > 0);
+    if (!canNarrate) return;
 
-    const key = `${phase}:${round || 0}`;
+    // ✅ Include storyStep so setup->setup changes still trigger narration fetch
+    const key = `${phase}:${round}:${storyStep}`;
 
-    // Only fetch when phase/round changes
     if (lastNarrationKeyRef.current === key) return;
 
     lastNarrationKeyRef.current = key;
     fetchNarrationOnce();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, view?.phase, view?.round]);
+  }, [sessionId, view?.phase, view?.round, view?.storyStep]);
 
   // ─────────────────────────────
   // Role + narrator resolution (from VIEW)
@@ -170,6 +209,9 @@ export default function GameScreen({
   const me = view?.me || null;
 
   const effectivePlayerName = me?.name || player?.name || "Unknown";
+
+  const storyStep = Number(view?.storyStep || 0);
+  const storyActive = view?.phase !== "setup" || storyStep > 0;
 
   // ─────────────────────────────
   // One-time intro countdown (client-only)
@@ -205,111 +247,6 @@ export default function GameScreen({
   }, [sessionId]);
 
   // ─────────────────────────────
-  // Render helpers
-  // ─────────────────────────────
-
-  function RoleCard() {
-    if (!view) {
-      return <div className="join-empty">Loading your role…</div>;
-    }
-
-    if (!me) {
-      return (
-        <div className="join-empty">
-          Couldn’t find your player in the game view.
-        </div>
-      );
-    }
-
-    const roleObj = me.role?.id ? me.role : { id: "narrator" };
-
-    const roleName =
-      (roleObj?.id || "")
-        .toString()
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (m) => m.toUpperCase()) || "Unknown Role";
-
-    const alignment = me.role?.alignment || (isNarrator ? "narrator" : null);
-
-    // ✅ Theme-driven character (human-readable)
-    const character = me.character || null;
-
-    // Narrator doesn’t use roleMap characters (by design)
-    const showCharacter = !isNarrator && character;
-
-    return (
-      <div className="player-list">
-        <div className="player-row" style={{ alignItems: "flex-start" }}>
-          <div
-            className="player-left"
-            style={{ gap: 10, alignItems: "flex-start" }}
-          >
-            <div className="player-name" style={{ fontSize: 18 }}>
-              {roleName}
-            </div>
-          </div>
-
-          {alignment && <div className="lobby-pill">{alignment}</div>}
-        </div>
-
-        {isNarrator ? (
-          <div className="join-empty" style={{ textAlign: "left" }}>
-            You’re the Narrator. You’ll guide the group, advance phases, and read
-            the prompts.
-          </div>
-        ) : showCharacter ? (
-          <>
-            <div className="join-empty" style={{ textAlign: "left" }}>
-              <strong>{character.name}</strong>
-            </div>
-
-            {character.description && (
-              <div className="join-empty" style={{ textAlign: "left" }}>
-                {character.description}
-              </div>
-            )}
-
-            {character.objective && (
-              <div className="join-empty" style={{ textAlign: "left" }}>
-                <strong>Your objective:</strong> {character.objective}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="home-soon" role="status">
-            <span className="home-soon-dot" aria-hidden="true" />
-            Character info missing for your role. (Theme roleMap may not have
-            mapped correctly.)
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function NarrationCard() {
-    // If we haven't fetched yet (because still in setup), keep it quiet
-    if (!narrationPayload?.narration?.lines?.length) {
-      return null;
-    }
-
-    const lines = narrationPayload.narration.lines;
-
-    return (
-      <div className="player-list">
-        {lines.map((line, idx) => (
-          <div
-            key={`${narrationPayload?.narration?.id || "n"}_${idx}`}
-            className="join-empty"
-            style={{ textAlign: "left" }}
-          >
-            {line}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  // ─────────────────────────────
   // Main render
   // ─────────────────────────────
 
@@ -335,14 +272,26 @@ export default function GameScreen({
       <div className="home-hero">
         <div className="brand" style={{ marginBottom: 14 }}>
           <h1 className="brand-title" style={{ fontSize: 28, margin: 0 }}>
-            {stage === "intro" ? "Get Ready" : "Your Role"}
+            {stage === "intro"
+              ? "Get Ready"
+              : storyActive
+                ? effectivePlayerName
+                : "Your Role"}
           </h1>
-          <p className="brand-subtitle" style={{ marginTop: 8 }}>
-            {effectivePlayerName}
-          </p>
+
+          {/* only show the subtitle when we’re in “Your Role” reveal mode */}
+          {!storyActive && stage !== "intro" && (
+            <p className="brand-subtitle" style={{ marginTop: 8 }}>
+              {effectivePlayerName}
+            </p>
+          )}
         </div>
 
-        <div className="form-stack">
+        <div
+          className="form-stack"
+          // ✅ prevents overlap with fixed “View My Role” button
+          style={{ paddingBottom: stage === "reveal" ? 50 : 0 }}
+        >
           {/* ✅ DEV ONLY: Cycle player */}
           {isDev && (
             <button
@@ -371,10 +320,7 @@ export default function GameScreen({
                 You’ll see private instructions in a moment.
               </div>
 
-              <div
-                className="lobby-code"
-                style={{ justifyContent: "space-between" }}
-              >
+              <div className="lobby-code" style={{ justifyContent: "space-between" }}>
                 <div className="lobby-code-left">
                   <div className="lobby-code-label">Revealing role in</div>
                   <div className="lobby-code-value" style={{ fontSize: 28 }}>
@@ -385,24 +331,52 @@ export default function GameScreen({
             </>
           ) : (
             <>
-              <RoleCard />
-
+              {/* ✅ MAIN CARD AREA (decluttered once story starts) */}
               {isNarrator ? (
-                <div className="home-soon" role="status">
-                  <span className="home-soon-dot" aria-hidden="true" />
-                  You are the Narrator. Give everyone time to read their role,
-                  then advance the game.
-                </div>
-              ) : (
-                <div className="join-empty">
-                  Waiting for the narrator to continue…
-                </div>
-              )}
+                <>
+                  {/* Before story starts, show full role reveal + narrator helper */}
+                  {!storyActive && (
+                    <>
+                      <RoleCard view={view} me={me} isNarrator={isNarrator} />
 
-              <NarrationCard />
+                      <div className="home-soon" role="status">
+                        <span className="home-soon-dot" aria-hidden="true" />
+                        You are the Narrator. Give everyone time to read their role, then
+                        advance the game.
+                      </div>
+                    </>
+                  )}
+
+                  {/* Narrator ALWAYS sees narration + next once reveal starts */}
+                  <NarrationCard
+                    narrationPayload={narrationPayload}
+                    showNext={stage === "reveal" && isNarrator}
+                    onNext={advancePhase}
+                    nextDisabled={advancing}
+                  />
+                </>
+              ) : storyActive ? (
+                <>
+                  {/* Everyone else sees ONLY “listen…” */}
+                  <div className="player-list">
+                    <div className="join-empty" style={{ textAlign: "left" }}>
+                      Listen to the narrator…
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Before story starts, show full role reveal */}
+                  <RoleCard view={view} me={me} isNarrator={isNarrator} />
+
+                  <div className="join-empty">Waiting for the narrator to continue…</div>
+                </>
+              )}
             </>
           )}
 
+          {/* 🔒 Exit should later become host-only.
+              Leaving as-is per your current wiring. */}
           {!!onExit && (
             <button className="wd-btn wd-btn--ghost" onClick={onExit}>
               Exit
@@ -458,7 +432,7 @@ export default function GameScreen({
                   </button>
                 </div>
 
-                <RoleCard />
+                <RoleCard view={view} me={me} isNarrator={isNarrator} />
               </div>
             )}
           </div>

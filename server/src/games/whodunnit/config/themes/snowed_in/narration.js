@@ -3,161 +3,108 @@
 export const narration = {
   /**
    * ─────────────────────────────
-   * OPENING
-   * Sets the scene, explains the situation, establishes tone
-   * Fired once at game start
+   * PROLOGUE
+   * Sets the scene + mood. No rules.
+   * Fired before the "game" begins.
    * ─────────────────────────────
    */
-  opening: [
+  prologue: [
     {
-      id: "opening_1",
-      intent: "begin_game",
+      id: "prologue_1",
+      intent: "set_scene",
       weight: 1,
       lines: [
-        "The retreat was meant to be quiet.",
-        "A remote lodge, a few days away from the world.",
-        "No one imagined how quickly isolation would turn into something else."
-      ]
+        "The lodge was supposed to be a reset — three days of quiet, heat, and polite small talk.",
+        "A place so far from the world that even your phone gives up trying.",
+        "By the time the snow starts to fall in earnest, everyone is already inside.",
+        "At first it’s beautiful. Peaceful. The kind of silence people pay for.",
+        "Then the wind changes.",
+        "And the mountain reminds you that it doesn’t care what you planned."
+      ],
     },
     {
-      id: "opening_2",
-      intent: "begin_game",
+      id: "prologue_2",
+      intent: "set_scene",
       weight: 1,
       lines: [
-        "Snow began falling before anyone finished unpacking.",
-        "By nightfall, the road down the mountain was gone.",
-        "Everyone was trapped — whether they realized it yet or not."
-      ]
+        "You arrive in daylight, laughing at the signs warning about sudden storms.",
+        "The staff smiles like they’ve heard it all before — like the mountain always gets the last word.",
+        "By dusk, the road is gone. Not blocked — erased.",
+        "Snow presses against the windows as if it’s trying to get in.",
+        "The lodge creaks and settles, old wood complaining in the cold.",
+        "And for the first time, you understand something simple:",
+        "There is no leaving until the mountain decides you can."
+      ],
     },
     {
-      id: "opening_3",
-      intent: "begin_game",
+      id: "prologue_3",
+      intent: "set_scene",
       weight: 1,
       lines: [
-        "The storm wasn’t part of the plan.",
-        "Neither was being cut off from help.",
-        "The lodge became the whole world — and there was no leaving it."
-      ]
-    }
+        "The fire is warm. The drinks are strong. The atmosphere is almost convincing.",
+        "Everyone plays their part: friendly, tired, harmless.",
+        "But isolation does strange things to people.",
+        "It makes every glance feel like a message.",
+        "Every laugh feel a little too loud.",
+        "Every silence feel like it’s hiding something.",
+        "Outside, the storm grows heavier.",
+        "Inside, the lodge grows smaller."
+      ],
+    },
   ],
 
   /**
    * ─────────────────────────────
-   * BETWEEN PHASES
-   * Generic narration used between action phases
-   * Low specificity, high reusability
+   * RULES (IN-WORLD)
+   * Explains how the game will flow, without using "mafia" vocabulary.
+   * Establishes day vs night, secrecy, and deduction.
    * ─────────────────────────────
    */
-  between_phases: [
+  rules: [
     {
-      id: "between_1",
-      intent: "prepare_actions",
+      id: "rules_1",
+      intent: "explain_flow",
       weight: 1,
       lines: [
-        "The hours pass slowly inside the lodge.",
-        "Small talk fills the silence, but no one sounds relaxed.",
-        "Every interaction feels just a little forced."
-      ]
+        "Here’s what matters now.",
+        "In the daylight, you’ll talk. Watch. Ask questions. Decide who feels safe — and who doesn’t.",
+        "But when night comes, the lodge changes.",
+        "Doors close. Voices lower. People move with purpose.",
+        "Some of you will do nothing but listen and try to survive until morning.",
+        "Some of you will take actions in secret.",
+        "And some of you will lie as easily as breathing.",
+        "You won’t win by guessing. You’ll win by noticing."
+      ],
     },
     {
-      id: "between_2",
-      intent: "prepare_actions",
+      id: "rules_2",
+      intent: "explain_secrecy",
       weight: 1,
       lines: [
-        "People drift into separate rooms, groups forming and dissolving.",
-        "Whispers replace normal conversation.",
-        "It’s hard to tell who feels nervous — and who feels confident."
-      ]
+        "No one in this lodge is here by accident.",
+        "You each have a part to play — and you’re the only one who knows what it is.",
+        "During the day, you’ll have only your words and instincts.",
+        "During the night, certain people will be called to act while everyone else waits in the dark.",
+        "If you reveal what you are, you become predictable.",
+        "If you stay silent, you become suspicious.",
+        "Every choice you make will cost you something.",
+        "So be careful what you share — and be even more careful what you believe."
+      ],
     },
     {
-      id: "between_3",
-      intent: "prepare_actions",
+      id: "rules_3",
+      intent: "explain_objectives",
       weight: 1,
       lines: [
-        "The storm outside shows no sign of easing.",
-        "Inside, tensions continue to build.",
-        "Whatever happens next will happen behind closed doors."
-      ]
-    }
+        "There are different reasons people want control of this lodge.",
+        "Some of you are trying to protect the group — to keep everyone alive.",
+        "Some of you are trying to bend the night to your advantage.",
+        "And at least one of you is here for a reason that doesn’t require anyone else to survive.",
+        "You’ll have moments to act, and long stretches where all you can do is talk.",
+        "That’s the point.",
+        "The lodge doesn’t reward strength. It rewards patience.",
+        "And it punishes certainty."
+      ],
+    },
   ],
-
-  /**
-   * ─────────────────────────────
-   * ESCALATION
-   * Used as the game progresses and paranoia increases
-   * Same structure, darker tone
-   * ─────────────────────────────
-   */
-  escalation: [
-    {
-      id: "escalation_1",
-      intent: "prepare_actions",
-      weight: 1,
-      lines: [
-        "Trust is becoming a rare commodity.",
-        "Every word feels measured, every silence suspicious.",
-        "No one seems entirely comfortable anymore."
-      ]
-    },
-    {
-      id: "escalation_2",
-      intent: "prepare_actions",
-      weight: 1,
-      lines: [
-        "Eyes linger a moment too long.",
-        "Conversations stop abruptly when someone approaches.",
-        "The lodge feels smaller with every passing hour."
-      ]
-    },
-    {
-      id: "escalation_3",
-      intent: "prepare_actions",
-      weight: 1,
-      lines: [
-        "Fear has settled in alongside the cold.",
-        "Even familiar faces feel unpredictable now.",
-        "Everyone is starting to wonder how this will end."
-      ]
-    }
-  ],
-
-  /**
-   * ─────────────────────────────
-   * ENDGAME
-   * Late-game narration, approaching resolution
-   * Still non-specific, but heavy with finality
-   * ─────────────────────────────
-   */
-  endgame: [
-    {
-      id: "endgame_1",
-      intent: "closing",
-      weight: 1,
-      lines: [
-        "The atmosphere inside the lodge has shifted.",
-        "Whatever secrets remain won’t stay hidden much longer.",
-        "This can’t continue for another night."
-      ]
-    },
-    {
-      id: "endgame_2",
-      intent: "closing",
-      weight: 1,
-      lines: [
-        "Everyone knows the situation is reaching a breaking point.",
-        "There’s a sense that time is running out.",
-        "Soon, the truth will be impossible to ignore."
-      ]
-    },
-    {
-      id: "endgame_3",
-      intent: "closing",
-      weight: 1,
-      lines: [
-        "The storm still rages outside, but no one is paying attention anymore.",
-        "All focus has turned inward.",
-        "By the end of this, nothing will be the same."
-      ]
-    }
-  ]
 };

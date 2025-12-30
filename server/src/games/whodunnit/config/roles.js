@@ -17,6 +17,8 @@ export const ROLES = {
     canBeTargeted: false,
     required: true,
     category: "meta",
+
+    icon: "BookOpen",
   },
 
   // ─────────────────────────────
@@ -35,6 +37,8 @@ export const ROLES = {
     canBeTargeted: true,
     required: true,
     category: "core",
+
+    icon: "User",
   },
 
   DETECTIVE: {
@@ -50,6 +54,8 @@ export const ROLES = {
     required: true,          // 🔒 always present
     category: "core",
     maxPerGame: 1,
+
+    icon: "Search",
   },
 
   DOCTOR: {
@@ -65,6 +71,8 @@ export const ROLES = {
     required: true,          // 🔒 always present
     category: "core",
     maxPerGame: 1,
+
+    icon: "HeartPulse",
   },
 
   // ─────────────────────────────
@@ -83,6 +91,9 @@ export const ROLES = {
     canBeTargeted: true,
     required: false,
     category: "support",
+
+    icon: "BadgeCheck",
+    voteWeight: 2,
   },
 
   VIGILANTE: {
@@ -98,6 +109,8 @@ export const ROLES = {
     required: false,
     category: "support",
     maxPerGame: 1,
+
+    icon: "Crosshair",
   },
 
   // ─────────────────────────────
@@ -116,6 +129,8 @@ export const ROLES = {
     canBeTargeted: true,
     required: true,          // 🔒 at least one mafia
     category: "core",
+
+    icon: "Skull",
   },
 
   GODFATHER: {
@@ -131,6 +146,9 @@ export const ROLES = {
     required: false,
     category: "deception",
     maxPerGame: 1,
+
+    icon: "Crown",
+    investigationMask: { alignement: "town" },
   },
 
   CONSIGLIERE: {
@@ -146,6 +164,8 @@ export const ROLES = {
     required: false,
     category: "deception",
     maxPerGame: 1,
+
+    icon: "Eye",
   },
 
   BLACKMAILER: {
@@ -160,6 +180,8 @@ export const ROLES = {
     canBeTargeted: true,
     required: false,
     category: "deception",
+
+    icon: "MicOff",
   },
 
   // ─────────────────────────────
@@ -179,6 +201,8 @@ export const ROLES = {
     required: false,
     category: "chaos",
     maxPerGame: 1,
+
+    icon: "Swords",
   },
 
   ROLEBLOCKER: {
@@ -194,5 +218,7 @@ export const ROLES = {
     required: false,
     category: "deception",
     maxPerGame: 1,
+
+    icon: "Hand",
   },
 };

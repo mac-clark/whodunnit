@@ -195,45 +195,57 @@ export class WhodunnitGame {
       throw new Error("Only the narrator can advance the phase");
     }
 
+    // ✅ Ensure storyStep exists
+    if (typeof gameState.storyStep !== "number") {
+      gameState.storyStep = 0;
+    }
+
+    // ─────────────────────────────
+    // Story beats before gameplay begins
+    // ─────────────────────────────
+    // 0 -> 1 : prologue
+    // 1 -> 2 : rules
+    if (gameState.phase === "setup" && gameState.storyStep < 2) {
+      gameState.storyStep += 1;
+
+      this.emit(session, WHODUNNIT_EVENTS.INFORMATION_REVEALED, {
+        kind: "narration.beat",
+        storyStep: gameState.storyStep,
+      });
+
+      return;
+    }
+
+    // After rules are done, first real advance starts the game
+    if (gameState.phase === "setup" && gameState.storyStep >= 2) {
+      gameState.phase = "day";
+      gameState.round = 1;
+      gameState.storyStep = 3; // ✅ mark "gameplay mode" (optional but clean)
+
+      this.emit(session, WHODUNNIT_EVENTS.ROUND_STARTED, { round: gameState.round });
+      this.emit(session, WHODUNNIT_EVENTS.DAY_STARTED, { round: gameState.round });
+      return;
+    }
+
+    // ─────────────────────────────
+    // Normal phase loop
+    // ─────────────────────────────
     const currentPhase = gameState.phase;
 
     switch (currentPhase) {
-      case "setup":
-        gameState.phase = "day";
-        gameState.round = 1;
-
-        this.emit(session, WHODUNNIT_EVENTS.ROUND_STARTED, {
-          round: gameState.round,
-        });
-
-        this.emit(session, WHODUNNIT_EVENTS.DAY_STARTED, {
-          round: gameState.round,
-        });
-        break;
-
       case "day":
         gameState.phase = "night";
-
-        this.emit(session, WHODUNNIT_EVENTS.NIGHT_STARTED, {
-          round: gameState.round,
-        });
+        this.emit(session, WHODUNNIT_EVENTS.NIGHT_STARTED, { round: gameState.round });
         break;
 
       case "night":
-        this.emit(session, WHODUNNIT_EVENTS.NIGHT_ENDED, {
-          round: gameState.round,
-        });
+        this.emit(session, WHODUNNIT_EVENTS.NIGHT_ENDED, { round: gameState.round });
 
         gameState.round += 1;
         gameState.phase = "day";
 
-        this.emit(session, WHODUNNIT_EVENTS.ROUND_STARTED, {
-          round: gameState.round,
-        });
-
-        this.emit(session, WHODUNNIT_EVENTS.DAY_STARTED, {
-          round: gameState.round,
-        });
+        this.emit(session, WHODUNNIT_EVENTS.ROUND_STARTED, { round: gameState.round });
+        this.emit(session, WHODUNNIT_EVENTS.DAY_STARTED, { round: gameState.round });
         break;
 
       default:

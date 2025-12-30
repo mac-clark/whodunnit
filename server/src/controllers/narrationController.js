@@ -37,11 +37,18 @@ function pickWeighted(options) {
 function resolveBucket(gameState) {
   const phase = gameState?.phase || "setup";
   const round = Number(gameState?.round || 0);
+  const storyStep = Number(gameState?.storyStep || 0);
 
-  // Opening is always the setup phase
-  if (phase === "setup") return "opening";
+  // ✅ Narrative beats BEFORE the game loop
+  if (storyStep === 1) return "prologue";
+  if (storyStep === 2) return "rules";
 
-  // Very simple progression to reduce staleness over unknown game length:
+  // (Optional) if you ever want a "day 1 opening" narration after rules:
+  // if (storyStep === 3 && phase === "day" && round === 1) return "day_start";
+
+  // Fallback to phase/round-driven buckets once story beats are done
+  if (phase === "setup") return "prologue"; // safe fallback if setup persists
+
   if (round >= 5) return "endgame";
   if (round >= 3) return "escalation";
 

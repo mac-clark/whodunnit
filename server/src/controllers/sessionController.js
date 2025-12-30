@@ -2,6 +2,41 @@
 
 import { gameEngine } from "../engine/GameEngine.js";
 import { Player } from "../engine/Player.js";
+import { ROLES } from "../games/whodunnit/config/roles.js";
+import { themeConfig as snowedInTheme } from "../games/whodunnit/config/themes/snowed_in/config.js";
+
+function resolveRoleDefById(roleId) {
+  if (!roleId) return null;
+
+  // ROLES is keyed by uppercase names (CIVILIAN) but contains id: "civilian"
+  const all = Object.values(ROLES);
+  return all.find((r) => r?.id === roleId) || null;
+}
+
+function resolveThemeConfig(themeId) {
+  // wireframe: only snowed_in is supported right now
+  if (!themeId || themeId === "snowed_in") return snowedInTheme;
+  return snowedInTheme; // fallback for now
+}
+
+function enrichPlayerForViewer(playerState, themeId) {
+  if (!playerState) return null;
+
+  const roleId = playerState?.role?.id || playerState?.roleId || null;
+  const roleDef = resolveRoleDefById(roleId);
+
+  const theme = resolveThemeConfig(themeId);
+  const roleBrief = roleId ? theme?.roleBriefs?.[roleId] || null : null;
+
+  // Do NOT mutate gameState; return an enriched copy
+  return {
+    ...playerState,
+    role: roleDef
+      ? { ...roleDef } // full canonical role (includes icon)
+      : playerState.role || { id: roleId || "civilian" },
+    roleBrief,
+  };
+}
 
 /**
  * Create a new game session
@@ -149,7 +184,9 @@ export function viewSession(req, res) {
     isNarrator: narratorId ? p.id === narratorId : false,
   }));
 
-  const me = gs.players?.[viewer.id] || null;
+  const rawMe = gs.players?.[viewer.id] || null;
+  const me = enrichPlayerForViewer(rawMe, gs.themeId);
+
 
   if (!me) {
     return res.status(500).json({
@@ -165,6 +202,7 @@ export function viewSession(req, res) {
     themeId: gs.themeId,
     phase: gs.phase,
     round: gs.round,
+    storyStep: gs.storyStep || 0,
 
     narratorId,
     isNarrator,
@@ -178,7 +216,9 @@ export function viewSession(req, res) {
 
   // Narrator gets the full roster (roles + characters)
   if (isNarrator) {
-    payload.fullRoster = Object.values(gs.players || {});
+    payload.fullRoster = Object.values(gs.players || {}).map((p) =>
+      enrichPlayerForViewer(p, gs.themeId)
+    );
   }
 
   return res.json(payload);
@@ -208,10 +248,13 @@ export function startSession(req, res) {
 
 /**
  * Advance the current game phase (narrator-only)
+ * POST /sessions/:sessionId/phase/advance
+ * body: { deviceToken }
+ * dev: header x-dev-player-id
  */
 export function advancePhase(req, res) {
   const { sessionId } = req.params;
-  const { actorId } = req.body;
+  const { deviceToken } = req.body;
 
   const session = gameEngine.getSession(sessionId);
 
@@ -219,18 +262,52 @@ export function advancePhase(req, res) {
     return res.status(404).json({ error: "Session not found" });
   }
 
-  // ✅ Correct check for your current architecture
   if (!session.gameState) {
     return res.status(400).json({ error: "Game has not started yet" });
   }
 
+  // ─────────────────────────────
+  // Resolve actor (same rules as viewSession)
+  // ─────────────────────────────
+
+  let actor =
+    typeof session.findPlayerByDeviceToken === "function"
+      ? session.findPlayerByDeviceToken(deviceToken)
+      : null;
+
+  // ✅ DEV override (impersonate by playerId header)
+  const devToolsOn = process.env.DEV_TOOLS === "1";
+  const devPlayerId = req.get("x-dev-player-id");
+
+  if (!actor && devToolsOn && devPlayerId) {
+    actor = session.players?.get(devPlayerId) || null; // players is a Map
+  }
+
+  if (!actor) {
+    return res.status(404).json({ error: "Player not found for this device" });
+  }
+
+  // ─────────────────────────────
+  // Enforce narrator-only (controller-level)
+  // ─────────────────────────────
+
+  const gs = session.gameState;
+  const narratorId = gs.narratorId || null;
+
+  if (!narratorId || actor.id !== narratorId) {
+    return res
+      .status(403)
+      .json({ error: "Only the narrator can advance the phase" });
+  }
+
   try {
     const handler = gameEngine.getGameHandler(session.gameType);
-    handler.advancePhase(session, actorId);
 
-    // return something consistent (your view endpoint will read this)
-    res.json(session.gameState);
+    // Keep your handler signature stable: pass actor.id
+    handler.advancePhase(session, actor.id);
+
+    return res.json(session.gameState);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
 }

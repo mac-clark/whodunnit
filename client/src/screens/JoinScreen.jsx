@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw } from "lucide-react";
+import { getDeviceToken } from "../lib/deviceToken";
 
 const THEME_LABELS = {
   snowed_in: "Snowed In",
@@ -35,7 +36,9 @@ export default function JoinScreen({ onJoined, onBack }) {
   }, []);
 
   const sortedSessions = useMemo(() => {
-    return [...sessions].reverse();
+    return [...sessions]
+      .filter((s) => (s.state || "waiting") === "waiting")
+      .reverse();
   }, [sessions]);
 
   function getSessionId(s) {
@@ -84,7 +87,10 @@ export default function JoinScreen({ onJoined, onBack }) {
       const res = await fetch(`/api/sessions/${sessionId}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({
+          name: trimmed,
+          deviceToken: getDeviceToken(),
+        }),
       });
 
       if (!res.ok) {
@@ -175,7 +181,8 @@ export default function JoinScreen({ onJoined, onBack }) {
                   >
                     <div className="lobby-row">
                       <div className="lobby-line">
-                        Mafia hosted by <span className="lobby-host">{hostName}</span>
+                        Mafia hosted by{" "}
+                        <span className="lobby-host">{hostName}</span>
                       </div>
 
                       <div className="lobby-pill">{themeLabel}</div>

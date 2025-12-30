@@ -5,11 +5,18 @@ import {
   joinSession,
   startSession,
   advancePhase,
+  reconnectSession,
+  viewSession,
 } from "../controllers/sessionController.js";
 import { getNarration } from "../controllers/narrationController.js";
+import { devQuickstart } from "../controllers/devController.js";
 
 export function registerRoutes(app) {
   const router = Router();
+
+  if (process.env.DEV_TOOLS === "1") {
+    router.post("/dev/quickstart", devQuickstart);
+  }
 
   // ─────────────────────────────
   // Session lifecycle
@@ -24,6 +31,8 @@ export function registerRoutes(app) {
   // ─────────────────────────────
 
   router.post("/sessions/:sessionId/join", joinSession);
+  router.post("/sessions/:sessionId/reconnect", reconnectSession);
+  router.post("/sessions/:sessionId/view", viewSession);
 
   // ─────────────────────────────
   // Game phase control (narrator-only)

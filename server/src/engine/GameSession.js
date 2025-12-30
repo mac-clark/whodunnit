@@ -47,11 +47,22 @@ export class GameSession {
 
     this.state = "active";
     this.startedAt = Date.now();
+    this.game = gameHandler;
 
     // 🔌 Let the game initialize itself
-    if (gameHandler?.onStart) {
-      gameHandler.onStart(this);
+    if (this.game?.onStart) {
+      this.game.onStart(this);
     }
+  }
+
+  findPlayerByDeviceToken(deviceToken) {
+    if (!deviceToken) return null;
+
+    for (const p of this.players.values()) {
+      if (p.deviceToken && p.deviceToken === deviceToken) return p;
+    }
+
+    return null;
   }
 
   toJSON() {

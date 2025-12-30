@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getDeviceToken } from "../lib/deviceToken"; // NEW
 
 const THEMES = [
   {
@@ -36,7 +37,7 @@ export default function HostScreen({ onSessionCreated, onBack }) {
       const resSession = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameType: "whodunnit", themeId: themeId, }),
+        body: JSON.stringify({ gameType: "whodunnit", themeId: themeId }),
       });
 
       if (!resSession.ok) {
@@ -55,7 +56,10 @@ export default function HostScreen({ onSessionCreated, onBack }) {
       const resJoin = await fetch(`/api/sessions/${sessionId}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({
+          name: trimmed,
+          deviceToken: getDeviceToken(), // NEW
+        }),
       });
 
       if (!resJoin.ok) {

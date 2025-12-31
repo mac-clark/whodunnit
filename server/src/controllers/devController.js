@@ -26,7 +26,7 @@ export function devQuickstart(req, res) {
   const {
     gameType = "whodunnit",
     themeId = "snowed_in",
-    count = 8,
+    count = 4,
     names = [],
   } = req.body || {};
 
@@ -38,7 +38,7 @@ export function devQuickstart(req, res) {
     session.meta.themeId = themeId;
 
     // seed players
-    const total = Math.max(3, Math.min(24, Number(count) || 8));
+    const total = Math.max(4, Math.min(24, Number(count) || 4));
 
     const seeded = [];
     for (let i = 0; i < total; i++) {

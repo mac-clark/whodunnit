@@ -7,6 +7,8 @@ import {
   advancePhase,
   reconnectSession,
   viewSession,
+  submitVote,
+  submitNightAction,
 } from "../controllers/sessionController.js";
 import { getNarration } from "../controllers/narrationController.js";
 import { devQuickstart } from "../controllers/devController.js";
@@ -25,6 +27,8 @@ export function registerRoutes(app) {
   router.post("/sessions", createSession);
   router.post("/sessions/:sessionId/start", startSession);
   router.get("/sessions", listSessions);
+  router.post("/sessions/:sessionId/vote", submitVote);
+  router.post("/sessions/:sessionId/night/action", submitNightAction);
 
   // ─────────────────────────────
   // Player joins existing session

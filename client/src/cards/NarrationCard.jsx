@@ -1,17 +1,23 @@
-// client/src/cards/NarrationCard.jsx
-
-import React from "react";
-
 export default function NarrationCard({
   narrationPayload,
   showNext = false,
   onNext,
   nextDisabled = false,
+  tokens = {},
 }) {
-  const lines = narrationPayload?.narration?.lines || [];
+  const rawLines = narrationPayload?.narration?.lines || [];
 
   // If we haven't fetched yet (because still in setup), keep it quiet
-  if (!lines.length && !showNext) return null;
+  if (!rawLines.length && !showNext) return null;
+
+  const lines = rawLines.map((line) => {
+    let out = line;
+
+    // simple token replacement (add more tokens as needed)
+    if (tokens.victimName) out = out.replaceAll("{victimName}", tokens.victimName);
+
+    return out;
+  });
 
   return (
     <div className="player-list">

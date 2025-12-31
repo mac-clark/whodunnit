@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { getDeviceToken } from "../lib/deviceToken";
 import RoleCard from "../cards/RoleCard";
 import NarrationCard from "../cards/NarrationCard";
+import NightActionCard from "../cards/NightActionCard";
+import VoteCard from "../cards/VoteCard";
+import NarratorNightCard from "../cards/NarratorNightCard";
+import DeadCard from "../cards/DeadCard";
+import GameOverCard from "../cards/GameOverCard";
 
 const REVEAL_KEY_PREFIX = "whodunnit_reveal_done_";
 
@@ -31,10 +36,14 @@ export default function GameScreen({
   // “Role tab” toggle (always available)
   const [roleOpen, setRoleOpen] = useState(false);
 
+  const prevAliveRef = useRef(new Map()); // id -> alive
+  const [justDied, setJustDied] = useState(null); // {id, name} | null
+
   // Track last narration fetch key so we only fetch when phase/round changes
   const lastNarrationKeyRef = useRef(null);
 
   const[advancing, setAdvancing] = useState(false);
+  const[submitting, setSubmitting] = useState(false);
 
   const isDev = import.meta.env.VITE_DEV_TOOLS == 1;
   const devPlayerId = player?.id || player?._id;
@@ -65,6 +74,71 @@ export default function GameScreen({
     setTimeout(() => {
       fetchView({ silent: true });
     }, 0);
+  }
+
+  async function submitVote(targetId) {
+    if (!sessionId) return;
+
+    try {
+      setSubmitting(true);
+      setError("");
+
+      const headers = { "Content-Type": "application/json" };
+      if (isDev && devPlayerId) headers["x-dev-player-id"] = devPlayerId;
+
+      const res = await fetch(`/api/sessions/${sessionId}/vote`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          deviceToken: getDeviceToken(),
+          targetId,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to submit vote");
+      }
+
+      fetchView({ silent: true });
+    } catch (e) {
+      setError(e.message || "Failed to submit vote");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitNightAction(ability, targetId) {
+    if (!sessionId) return;
+
+    try {
+      setSubmitting(true);
+      setError("");
+
+      const headers = { "Content-Type": "application/json" };
+      if (isDev && devPlayerId) headers["x-dev-player-id"] = devPlayerId;
+
+      const res = await fetch(`/api/sessions/${sessionId}/night/action`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          deviceToken: getDeviceToken(),
+          ability,
+          targetId,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to submit night action");
+      }
+
+      fetchView({ silent: true });
+    } catch (e) {
+      setError(e.message || "Failed to submit night action");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // ─────────────────────────────
@@ -110,6 +184,8 @@ export default function GameScreen({
   async function advancePhase() {
     if (!sessionId) return;
 
+    if (view?.gameOver === true || view?.phase === "ended") return;
+
     try {
       setAdvancing(true);
       setError("");
@@ -150,13 +226,16 @@ export default function GameScreen({
   useEffect(() => {
     if (!sessionId) return;
 
+    // ✅ stop polling once game ended
+    if (view?.gameOver === true || view?.phase === "ended") return;
+
     const interval = setInterval(() => {
       fetchView({ silent: true });
     }, 1200);
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, isDev, devPlayerId]);
+  }, [sessionId, isDev, devPlayerId, view?.gameOver, view?.phase]);
 
   // ─────────────────────────────
   // Fetch narration (NO POLLING)
@@ -183,6 +262,8 @@ export default function GameScreen({
     if (!sessionId) return;
     if (!view) return;
 
+    if (view?.gameOver === true || view?.phase === "ended") return;
+
     const phase = view.phase;
     const round = Number(view.round || 0);
     const storyStep = Number(view.storyStep || 0);
@@ -192,14 +273,14 @@ export default function GameScreen({
     if (!canNarrate) return;
 
     // ✅ Include storyStep so setup->setup changes still trigger narration fetch
-    const key = `${phase}:${round}:${storyStep}`;
+    const key = view?.narrationCursor || `${phase}:${round}:${storyStep}`;
 
     if (lastNarrationKeyRef.current === key) return;
 
     lastNarrationKeyRef.current = key;
     fetchNarrationOnce();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, view?.phase, view?.round, view?.storyStep]);
+  }, [sessionId, view?.narrationCursor, view?.phase, view?.round, view?.storyStep]);
 
   // ─────────────────────────────
   // Role + narrator resolution (from VIEW)
@@ -212,6 +293,38 @@ export default function GameScreen({
 
   const storyStep = Number(view?.storyStep || 0);
   const storyActive = view?.phase !== "setup" || storyStep > 0;
+
+  const phase = view?.phase || "setup";
+  const gameOver = view?.gameOver === true || phase === "ended";
+  const gameResult = view?.gameResult || null;
+  const players = view?.players || [];
+  const vote = view?.vote || null;
+  const nightPrompt = view?.nightPrompt || null;
+
+  const myId = me?.id;
+  const amAlive = me?.alive !== false;
+  const isNight = phase === "night";
+  const isDay = phase === "day";
+  const silenced = view?.effects?.silenced === true;
+
+  const promptAbility = nightPrompt?.ability || null;
+  const promptActorIds = Array.isArray(nightPrompt?.actorIds) ? nightPrompt.actorIds : [];
+  const isMyTurnAtNight = !!promptAbility && promptActorIds.includes(myId);
+
+  const nightQueue = view?.nightQueue || [];
+  const nightIndex = view?.nightIndex ?? 0;
+
+  const nightMeta = view?.nightQueueMeta || null;
+  const nightIdx = nightMeta?.index ?? nightIndex ?? 0;
+  const nightLen = nightMeta?.length ?? (Array.isArray(nightQueue) ? nightQueue.length : 0);
+
+  // ✅ narrator is actively stepping through night queue
+  const nightActionsActive =
+    isNarrator &&
+    isNight &&
+    !!nightPrompt &&
+    nightPrompt?.done === false &&
+    nightLen > 0;
 
   // ─────────────────────────────
   // One-time intro countdown (client-only)
@@ -246,9 +359,63 @@ export default function GameScreen({
     return () => clearInterval(timer);
   }, [sessionId]);
 
+  useEffect(() => {
+    const roster = Array.isArray(view?.players) ? view.players : [];
+    if (!roster.length) return;
+
+    const prev = prevAliveRef.current;
+
+    // find anyone who flipped alive:true -> alive:false
+    const newlyDead = roster.find((p) => {
+      const wasAlive = prev.get(p.id);
+      return wasAlive === true && p.alive === false;
+    });
+
+    if (newlyDead) {
+      setJustDied({ id: newlyDead.id, name: newlyDead.name });
+    } else {
+      // if nobody newly died this tick, leave as-is or clear it
+      // I'd clear when the phase changes away from the result moment (optional)
+      // setJustDied(null);
+    }
+
+    // update prev map
+    const next = new Map();
+    for (const p of roster) next.set(p.id, !!p.alive);
+    prevAliveRef.current = next;
+  }, [view?.players]);
+
   // ─────────────────────────────
   // Main render
   // ─────────────────────────────
+
+  if (!isNarrator && !amAlive) {
+    return (
+      <div className="screen game-screen">
+        <DeadCard me={me} />
+        <button className="wd-btn wd-btn--ghost" onClick={onExit} style={{ width: "100%", marginTop: 10 }}>
+          Exit
+        </button>
+      </div>
+    );
+  }
+
+  if (gameOver) {
+    return (
+      <div className="screen game-screen">
+        <div className="screen-bg" aria-hidden="true" />
+        <div className="home-hero">
+          <div className="brand" style={{ marginBottom: 14 }}>
+            <h1 className="brand-title" style={{ fontSize: 28, margin: 0 }}>
+              Game Over
+            </h1>
+          </div>
+
+          <GameOverCard gameResult={gameResult} fullRoster={view?.fullRoster} onExit={onExit} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="screen game-screen">
@@ -334,11 +501,9 @@ export default function GameScreen({
               {/* ✅ MAIN CARD AREA (decluttered once story starts) */}
               {isNarrator ? (
                 <>
-                  {/* Before story starts, show full role reveal + narrator helper */}
                   {!storyActive && (
                     <>
                       <RoleCard view={view} me={me} isNarrator={isNarrator} />
-
                       <div className="home-soon" role="status">
                         <span className="home-soon-dot" aria-hidden="true" />
                         You are the Narrator. Give everyone time to read their role, then
@@ -347,23 +512,89 @@ export default function GameScreen({
                     </>
                   )}
 
-                  {/* Narrator ALWAYS sees narration + next once reveal starts */}
+                  {/* ✅ Night-specific narrator instructions driven by queue */}
+                  {isNight && (
+                    <NarratorNightCard
+                      me={me}
+                      players={players}
+                      nightQueue={nightQueue}
+                      nightIndex={nightIndex}
+                      nightPrompt={nightPrompt}
+                      fullRoster={view?.fullRoster}
+                      onNext={advancePhase}
+                      nextDisabled={advancing || gameOver}
+                      showNext={stage === "reveal" && isNarrator && nightActionsActive}
+                    />
+                  )}
+
                   <NarrationCard
                     narrationPayload={narrationPayload}
-                    showNext={stage === "reveal" && isNarrator}
+                    showNext={stage === "reveal" && isNarrator && !nightActionsActive && !gameOver}
                     onNext={advancePhase}
-                    nextDisabled={advancing}
+                    nextDisabled={advancing || gameOver}
+                    tokens={{
+                      victimName: justDied?.name || "No one",
+                    }}
                   />
                 </>
               ) : storyActive ? (
-                <>
-                  {/* Everyone else sees ONLY “listen…” */}
-                  <div className="player-list">
-                    <div className="join-empty" style={{ textAlign: "left" }}>
-                      Listen to the narrator…
-                    </div>
-                  </div>
-                </>
+                  <>
+                    {/* Non-narrator loop UI */}
+                    {isNight ? (
+                      <>
+                        {amAlive && isMyTurnAtNight ? (
+                          <NightActionCard
+                            me={me}
+                            players={players}
+                            nightPrompt={nightPrompt}
+                            effects={view?.effects}
+                            onSubmit={submitNightAction}
+                            submitting={submitting}
+                          />
+                        ) : (
+                          <div className="player-list">
+                            <div className="join-empty" style={{ textAlign: "left" }}>
+                              It’s night. Keep your screen hidden and wait…
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : isDay ? (
+                      <>
+                        {amAlive && vote?.open ? (
+                          silenced ? (
+                            <div className="player-list">
+                              <div className="join-empty" style={{ textAlign: "left" }}>
+                                <strong>You are silenced today.</strong>
+                                <br />
+                                You cannot speak or vote. Wait for the narrator…
+                              </div>
+                            </div>
+                          ) : (
+                            <VoteCard
+                              me={me}
+                              players={players}
+                              vote={vote}
+                              onSubmit={submitVote}
+                              submitting={submitting}
+                            />
+                          )
+                        ) : (
+                          <div className="player-list">
+                            <div className="join-empty" style={{ textAlign: "left" }}>
+                              Listen to the narrator…
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="player-list">
+                        <div className="join-empty" style={{ textAlign: "left" }}>
+                          Listen to the narrator…
+                        </div>
+                      </div>
+                    )}
+                  </>
               ) : (
                 <>
                   {/* Before story starts, show full role reveal */}

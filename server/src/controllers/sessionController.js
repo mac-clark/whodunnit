@@ -319,6 +319,7 @@ export function viewSession(req, res) {
       requiredCount: requiredVoteCount,
       complete: votesCount >= requiredVoteCount,
       myVote,
+      result: gs.vote?.resolved === true ? { eliminatedId: gs.vote?.result?.eliminatedId ?? null } : null,
     },
   };
 

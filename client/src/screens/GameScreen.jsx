@@ -318,6 +318,13 @@ export default function GameScreen({
   const nightIdx = nightMeta?.index ?? nightIndex ?? 0;
   const nightLen = nightMeta?.length ?? (Array.isArray(nightQueue) ? nightQueue.length : 0);
 
+  const voteEliminatedId = view?.vote?.result?.eliminatedId ?? null;
+
+  const eliminatedName =
+    voteEliminatedId
+      ? (players.find(p => p.id === voteEliminatedId)?.name || "No one")
+      : "No one";
+
   // ✅ narrator is actively stepping through night queue
   const nightActionsActive =
     isNarrator &&
@@ -534,6 +541,7 @@ export default function GameScreen({
                     nextDisabled={advancing || gameOver}
                     tokens={{
                       victimName: justDied?.name || "No one",
+                      eliminatedName,
                     }}
                   />
                 </>

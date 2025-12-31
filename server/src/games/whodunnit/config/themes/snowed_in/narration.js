@@ -366,7 +366,7 @@ export const narration = {
     },
     {
       id: "day_result_no_elimination_1",
-      intent: "reveal_no_elimination",
+      intent: "reveal_vote_no_elimination",
       weight: 1,
       lines: [
         "You argue in circles until the daylight starts to fade.",

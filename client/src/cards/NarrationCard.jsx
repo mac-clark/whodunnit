@@ -15,6 +15,7 @@ export default function NarrationCard({
 
     // simple token replacement (add more tokens as needed)
     if (tokens.victimName) out = out.replaceAll("{victimName}", tokens.victimName);
+    if (tokens.eliminatedName) out = out.replaceAll("{eliminatedName}", tokens.eliminatedName);
 
     return out;
   });

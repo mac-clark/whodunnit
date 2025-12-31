@@ -48,6 +48,16 @@ export default function GameScreen({
   const isDev = import.meta.env.VITE_DEV_TOOLS == 1;
   const devPlayerId = player?.id || player?._id;
 
+  const [pageVisible, setPageVisible] = useState(
+    typeof document === "undefined" ? true : document.visibilityState === "visible"
+  );
+
+  useEffect(() => {
+    const onVis = () => setPageVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   // ─────────────────────────────
   // DEV: cycle player
   // ─────────────────────────────
@@ -224,18 +234,62 @@ export default function GameScreen({
   }, [sessionId]);
 
   useEffect(() => {
+    if (!pageVisible) return;
     if (!sessionId) return;
+    fetchView({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageVisible, sessionId, isDev, devPlayerId]);
 
-    // ✅ stop polling once game ended
+  useEffect(() => {
+    if (!sessionId) return;
     if (view?.gameOver === true || view?.phase === "ended") return;
 
-    const interval = setInterval(() => {
-      fetchView({ silent: true });
-    }, 1200);
+    const hasView = !!view;
 
-    return () => clearInterval(interval);
+    const myId = view?.me?.id;
+
+    const urgent =
+      // narrator should feel snappy
+      !!view?.isNarrator ||
+      // vote open (and I'm not silenced)
+      (view?.vote?.open === true && view?.effects?.silenced !== true) ||
+      // my night action turn
+      (view?.phase === "night" &&
+        !!view?.nightPrompt?.ability &&
+        Array.isArray(view?.nightPrompt?.actorIds) &&
+        view?.nightPrompt.actorIds.includes(myId)) ||
+      // dev tools: keep it snappy when you're impersonating
+      isDev === true;
+
+    let baseMs;
+    if (!pageVisible) baseMs = 8000;
+    else if (!hasView) baseMs = 1200;
+    else if (urgent) baseMs = 1200;
+    else baseMs = 3000;
+
+    const jitter = Math.floor(Math.random() * 250);
+    const pollMs = baseMs + jitter;
+
+    const id = setInterval(() => {
+      fetchView({ silent: true });
+    }, pollMs);
+
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, isDev, devPlayerId, view?.gameOver, view?.phase]);
+  }, [
+    sessionId,
+    pageVisible,
+    isDev,
+    devPlayerId,
+    view?.gameOver,
+    view?.phase,
+    view?.isNarrator,
+    view?.vote?.open,
+    view?.effects?.silenced,
+    view?.nightPrompt?.ability,
+    view?.nightPrompt?.actorIds,
+    view?.me?.id,
+  ]);
 
   // ─────────────────────────────
   // Fetch narration (NO POLLING)
